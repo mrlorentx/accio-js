@@ -2,11 +2,12 @@
   "name": "retrieve",
   "type": "module",
   "version": "1.0.0",
-  "description": "",
+  "description": "A modern, lightweight HTTP client for Node.js with built-in retry capabilities, timeout handling, and event monitoring.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
+    "ci": "npm run typecheck && npm run test",
     "test": "node --test \"src/**/*.test.ts\""
   },
   "keywords": [],
