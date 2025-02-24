@@ -4,7 +4,6 @@ A modern, lightweight HTTP client for Node.js with built-in retry capabilities, 
 
 [![Node.js Version](https://img.shields.io/node/v/retrieve)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
 ## Features
 
