@@ -3,22 +3,57 @@
   "type": "module",
   "version": "1.0.0",
   "description": "A modern, lightweight HTTP client for Node.js with built-in retry capabilities, timeout handling, and event monitoring.",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "typecheck": "tsc --noEmit",
-    "ci": "npm run typecheck && npm run test",
-    "test": "node --test \"src/**/*.test.ts\""
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "ci": "npm run typecheck && npm run lint && npm run test",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "http",
+    "client",
+    "fetch",
+    "retry",
+    "timeout",
+    "typescript",
+    "undici"
+  ],
+  "author": {
+    "name": "mrlorentx",
+    "url": "https://github.com/mrlorentx"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrlorentx/retrieve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mrlorentx/retrieve/issues"
+  },
+  "homepage": "https://github.com/mrlorentx/retrieve#readme",
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@tsconfig/node-lts": "^22.0.1",
     "@types/node": "^22.13.5",
     "eslint": "^9.21.0",
     "globals": "^16.0.0",
+    "tsup": "^8.3.6",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.1"
   },
@@ -26,6 +61,6 @@
     "undici": "^7.3.0"
   },
   "engines": {
-    "node": "23.x"
+    "node": ">=23.0.0"
   }
 }

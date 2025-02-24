@@ -1,0 +1,21 @@
+# Source
+src/
+
+# Config files
+.eslintrc.json
+tsconfig.json
+tsup.config.ts
+
+# Tests
+**/*.test.ts
+
+# Development
+.git/
+.github/
+.vscode/
+node_modules/
+
+# Misc
+.DS_Store
+*.log
+
