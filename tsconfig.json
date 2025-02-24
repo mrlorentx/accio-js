@@ -1,2 +1,10 @@
-{"extends": "@tsconfig/node-lts/tsconfig.json"}
+{
+  "extends": "@tsconfig/node-lts/tsconfig.json",
+  "compilerOptions": {
+   "erasableSyntaxOnly": true,
+     "allowImportingTsExtensions": true,
+     "rewriteRelativeImportExtensions": true,
+     "verbatimModuleSyntax": true
+  }
+}
 
