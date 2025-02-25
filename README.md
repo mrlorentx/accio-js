@@ -22,7 +22,7 @@ import { createHttpClient } from 'accio-js';
 const client = createHttpClient();
 
 try {
-  const response = await client.get('https://api.example.com/data');
+  const response = await client.get('https://jsonplaceholder.typicode.com/todos/1');
   const data = await response.json();
   console.log(data);
 } catch (error) {
@@ -65,6 +65,7 @@ const client = createHttpClient({
 | `retry.maxDelay` | `number` | `1000` | Maximum delay between retries (ms) |
 | `retry.jitter` | `number` | `0.1` | Random delay factor (0-1) |
 | `retry.retryableStatuses` | `number[]` | `[408, 429, 500, 502, 503, 504]` | HTTP status codes that trigger retries |
+| `retry.shouldRetry`| `(error, attempt) => boolean`| `() => false` | Custom retry function for advanced retry logic. Return true to retry regardless of status code |
 
 ## Event Monitoring
 
@@ -107,4 +108,120 @@ All methods return a `Promise<Response>` compatible with the Fetch API.
 - `request:end` - Emitted when a request successfully completes
 - `request:error` - Emitted when a request fails
 - `request:retry` - Emitted before a retry attempt
+
+## Cookbook & Examples
+
+### Using with Hono
+
+```typescript
+import { Hono } from 'hono';
+import { createHttpClient } from 'accio-js';
+
+// Create a shared HTTP client
+const httpClient = createHttpClient({
+  headers: {
+    'User-Agent': 'MyApp/1.0',
+  },
+  timeout: 5000,
+});
+
+const app = new Hono();
+
+// Add client to Hono context
+app.use('*', async (c, next) => {
+  c.set('httpClient', httpClient);
+  await next();
+});
+
+app.get('/proxy-api', async (c) => {
+  const client = c.get('httpClient');
+  
+  try {
+    const response = await client.get('https://api.example.com/data');
+    const data = await response.json();
+    return c.json(data);
+  } catch (error) {
+    c.status(500);
+    return c.json({ error: 'Failed to fetch data' });
+  }
+});
+
+export default app;
+```
+### Using with Express
+
+```typescript
+import express from 'express';
+import { createHttpClient } from 'accio-js';
+
+const app = express();
+
+// Create a shared HTTP client
+const httpClient = createHttpClient({
+  timeout: 3000,
+  retry: {
+    maxRetries: 2,
+  },
+});
+
+// Add client to Express request object
+app.use((req, res, next) => {
+  req.httpClient = httpClient;
+  next();
+});
+
+// Use in route handlers
+app.get('/api/users', async (req, res) => {
+  try {
+    const response = await req.httpClient.get('https://api.example.com/users');
+    const users = await response.json();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.listen(3000);
+```
+### Pushing metrics on events
+
+```typescript
+import { createHttpClient } from 'accio-js';
+import { metrics } from 'datadog-metrics';
+
+// Configure Datadog
+metrics.init({ host: 'myapp', prefix: 'http.' });
+
+const client = createHttpClient();
+
+// Track request durations
+client.on('request:end', (url, response, duration) => {
+  const urlPath = new URL(url).pathname;
+  metrics.histogram('request.duration', duration, {
+    path: urlPath,
+    status: response.status.toString(),
+  });
+});
+
+// Track errors
+client.on('request:error', (url, error) => {
+  const urlPath = new URL(url).pathname;
+  metrics.increment('request.error', 1, {
+    path: urlPath,
+    error: error.name,
+  });
+});
+
+// Track retries
+client.on('request:retry', (url, error, attempt) => {
+  const urlPath = new URL(url).pathname;
+  metrics.increment('request.retry', 1, {
+    path: urlPath,
+    attempt: attempt.toString(),
+  });
+});
+```
+## Todos
+
+- Implement cookbook examples
 
