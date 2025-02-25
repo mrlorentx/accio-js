@@ -1,5 +1,6 @@
 import { EventEmitter } from "events";
 import { fetch, type RequestInit, Response } from "undici";
+import { HttpError } from "./errors.ts";
 
 export interface RetryConfig {
   /** Maximum number of retry attempts */
@@ -13,7 +14,7 @@ export interface RetryConfig {
   /** HTTP status codes that should trigger a retry */
   retryableStatuses?: number[];
   /** Custom condition to determine if a request should be retried */
-  shouldRetry?: (error: Error, attempt: number) => boolean;
+  shouldRetry?: (error: HttpError, attempt: number) => boolean;
 }
 
 export interface HttpClientConfig {
@@ -24,12 +25,15 @@ export interface HttpClientConfig {
   /** Retry configuration */
   retry?: RetryConfig;
 }
-
 export interface HttpClientEvents {
   "request:start": (url: string, init: RequestInit) => void;
   "request:end": (url: string, response: Response, duration: number) => void;
-  "request:error": (url: string, error: Error, attempt: number) => void;
-  "request:retry": (url: string, error: Error, attempt: number) => void;
+  "request:error": (
+    url: string,
+    error: Error | HttpError,
+    attempt: number,
+  ) => void;
+  "request:retry": (url: string, error: HttpError, attempt: number) => void;
 }
 
 const DEFAULT_CONFIG: Required<RetryConfig> = {
@@ -95,12 +99,27 @@ export class HttpClient {
       const duration = Date.now() - startTime;
       this.events.emit("request:end", url, response, duration);
 
-      if (
-        !response.ok &&
-        this.retryConfig.retryableStatuses.includes(response.status) &&
-        attempt <= this.retryConfig.maxRetries
-      ) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.ok) {
+        // Clone the response to read the body without consuming the original
+        const clonedResponse = response.clone();
+        let responseBody;
+
+        try {
+          responseBody = await clonedResponse.json();
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (e) {
+          // If we can't parse the body as JSON, use an empty object
+          responseBody = {};
+        }
+
+        const httpError = new HttpError(
+          `HTTP ${response.status}: ${response.statusText}`,
+          response.status,
+          url,
+          responseBody,
+        );
+
+        throw httpError;
       }
 
       return response;
@@ -115,20 +134,28 @@ export class HttpClient {
 
       if (
         attempt <= this.retryConfig.maxRetries &&
-        this.retryConfig.shouldRetry(error as Error, attempt)
+        error instanceof HttpError
       ) {
-        this.events.emit("request:retry", url, error as Error, attempt);
-
-        const delay = Math.min(
-          this.retryConfig.initialDelay * Math.pow(2, attempt - 1),
-          this.retryConfig.maxDelay,
+        const shouldRetryStatus = this.retryConfig.retryableStatuses.includes(
+          error.status,
         );
 
-        const jitterDelay =
-          delay * (1 + (Math.random() * 2 - 1) * this.retryConfig.jitter);
+        const shouldRetryCustom = this.retryConfig.shouldRetry(error, attempt);
 
-        await new Promise((resolve) => setTimeout(resolve, jitterDelay));
-        return this.fetchWithRetry(url, init, attempt + 1);
+        if (shouldRetryStatus && shouldRetryCustom) {
+          this.events.emit("request:retry", url, error as HttpError, attempt);
+
+          const delay = Math.min(
+            this.retryConfig.initialDelay * Math.pow(2, attempt - 1),
+            this.retryConfig.maxDelay,
+          );
+
+          const jitterDelay =
+            delay * (1 + (Math.random() * 2 - 1) * this.retryConfig.jitter);
+
+          await new Promise((resolve) => setTimeout(resolve, jitterDelay));
+          return this.fetchWithRetry(url, init, attempt + 1);
+        }
       }
 
       throw error;

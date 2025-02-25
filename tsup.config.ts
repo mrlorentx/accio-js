@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entryPoints: ["src/client.ts"],
+  entryPoints: ["src/index.ts"],
   format: ["esm"],
   dts: true,
   treeshake: true,
