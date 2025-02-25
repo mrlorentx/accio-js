@@ -3,6 +3,7 @@ import assert from "node:assert";
 import type { MockPool } from "undici";
 import { MockAgent, setGlobalDispatcher } from "undici";
 import { createHttpClient } from "../client.ts";
+import { HttpError } from "../errors.ts";
 
 let mockPool: MockPool;
 let mockAgent: MockAgent;
@@ -263,6 +264,243 @@ describe("HttpClient", () => {
       events[7].data.status,
       200,
       "Final response status should be 200",
+    );
+  });
+  it("should use custom shouldRetry function to retry based on error message", async () => {
+    const client = createHttpClient({
+      retry: {
+        maxRetries: 3,
+        initialDelay: 10,
+        maxDelay: 100,
+        retryableStatuses: [503],
+        shouldRetry: (error) => error.responseContains("Service Unavailable"),
+      },
+    });
+
+    mockPool
+      .intercept({ path: "/custom-retry", method: "GET" })
+      .reply(503, () => {
+        return {
+          statusCode: 503,
+          data: { error: "Service Unavailable" },
+        };
+      });
+
+    mockPool
+      .intercept({ path: "/custom-retry", method: "GET" })
+      .reply(500, () => {
+        return { statusCode: 500, data: { error: "internal server error" } };
+      });
+
+    mockPool
+      .intercept({ path: "/custom-retry", method: "GET" })
+      .reply(200, () => {
+        return { statusCode: 200, data: { success: true } };
+      });
+
+    let retryAttempts = 0;
+
+    client.on("request:retry", (_url, _err, retries) => {
+      retryAttempts = retries;
+    });
+
+    // This should retry on the first 503 error (service unavailable)
+    // but not on the second 500 error (internal server error)
+    await assert.rejects(
+      async () => {
+        await client.get("http://api.example.com/custom-retry");
+      },
+      () => {
+        // Should fail with the 500 error
+        assert.equal(retryAttempts, 1, "Should have one retry (called twice)");
+        return true;
+      },
+    );
+  });
+
+  it("should use custom shouldRetry function to limit retries based on attempt count", async () => {
+    const client = createHttpClient({
+      retry: {
+        maxRetries: 5, // Set high max retries
+        initialDelay: 10,
+        maxDelay: 100,
+        // Only retry on first attempt
+        shouldRetry: (_, attempt) => attempt === 1,
+      },
+    });
+
+    let attempts = 0;
+    mockPool
+      .intercept({ path: "/attempt-limit", method: "GET" })
+      .reply(() => {
+        attempts++;
+        return { statusCode: 500, data: { error: "server error" } };
+      })
+      .persist();
+
+    // This should only retry once despite the 500 error
+    await assert.rejects(
+      async () => {
+        await client.get("http://api.example.com/attempt-limit");
+      },
+      () => {
+        assert.equal(attempts, 2, "Should have attempted exactly twice");
+        return true;
+      },
+    );
+  });
+
+  it("should combine retryableStatuses with shouldRetry for custom retry logic", async () => {
+    const client = createHttpClient({
+      retry: {
+        maxRetries: 3,
+        initialDelay: 10,
+        maxDelay: 100,
+        retryableStatuses: [429],
+        shouldRetry: (error) => {
+          return error.responseContains("rate limit exceeded");
+        },
+      },
+    });
+
+    // Scenario 1: Correct status (429) and correct message ("rate limit exceeded") - should retry
+    let rateLimitAttempts = 0;
+    mockPool
+      .intercept({ path: "/rate-limit", method: "GET" })
+      .reply(() => {
+        rateLimitAttempts++;
+        return {
+          statusCode: 429,
+          data: { error: "rate limit exceeded" },
+        };
+      })
+      .persist();
+
+    // Scenario 2: Wrong status (503) but correct message - should not retry
+    let wrongStatusAttempts = 0;
+    mockPool
+      .intercept({ path: "/wrong-status", method: "GET" })
+      .reply(() => {
+        wrongStatusAttempts++;
+        return {
+          statusCode: 503,
+          data: { error: "rate limit exceeded" },
+        };
+      })
+      .persist();
+
+    // Scenario 3: Correct status (429) but wrong message - should not retry
+    let wrongMessageAttempts = 0;
+    mockPool
+      .intercept({ path: "/wrong-message", method: "GET" })
+      .reply(() => {
+        wrongMessageAttempts++;
+        return {
+          statusCode: 429,
+          data: { error: "server error" },
+        };
+      })
+      .persist();
+
+    // Test scenario 1: Should retry (maxRetries + 1 = 4 attempts)
+    await assert.rejects(
+      async () => {
+        await client.get("http://api.example.com/rate-limit");
+      },
+      () => true,
+    );
+    assert.equal(
+      rateLimitAttempts,
+      4,
+      "Should have attempted 4 times for rate-limit scenario",
+    );
+
+    // Test scenario 2: Should not retry (only 1 attempt)
+    await assert.rejects(
+      async () => {
+        await client.get("http://api.example.com/wrong-status");
+      },
+      () => true,
+    );
+    assert.equal(
+      wrongStatusAttempts,
+      1,
+      "Should have attempted only once for wrong-status scenario",
+    );
+
+    // Test scenario 3: Should not retry (only 1 attempt)
+    await assert.rejects(
+      async () => {
+        await client.get("http://api.example.com/wrong-message");
+      },
+      () => true,
+    );
+    assert.equal(
+      wrongMessageAttempts,
+      1,
+      "Should have attempted only once for wrong-message scenario",
+    );
+
+    // Clean up
+    mockPool.removeAllListeners();
+  });
+
+  it("should throw HttpError with proper properties", async () => {
+    const client = createHttpClient({
+      retry: {
+        maxRetries: 0, // No retries for this test
+      },
+    });
+
+    mockPool
+      .intercept({ path: "/error-test", method: "GET" })
+      .reply(404, { message: "Resource not found" });
+
+    await assert.rejects(
+      async () => {
+        await client.get("http://api.example.com/error-test");
+      },
+      (error) => {
+        assert.ok(error instanceof HttpError, "Error should be an HttpError");
+
+        const httpError = error as HttpError;
+        assert.equal(httpError.status, 404, "Status should be 404");
+        assert.equal(
+          httpError.url,
+          "http://api.example.com/error-test",
+          "URL should match",
+        );
+        assert.ok(httpError.responseBody, "Response body should exist");
+        assert.deepEqual(
+          httpError.responseBody,
+          { message: "Resource not found" },
+          "Response body should match",
+        );
+
+        // Test helper methods
+        assert.ok(
+          httpError.hasStatus(404),
+          "hasStatus should return true for 404",
+        );
+        assert.ok(
+          httpError.hasStatusInRange(400, 499),
+          "hasStatusInRange should return true for 400-499",
+        );
+        assert.ok(
+          httpError.isClientError(),
+          "isClientError should return true",
+        );
+        assert.ok(
+          !httpError.isServerError(),
+          "isServerError should return false",
+        );
+        assert.ok(
+          httpError.responseContains("not found"),
+          "responseContains should find substring",
+        );
+
+        return true;
+      },
     );
   });
 });

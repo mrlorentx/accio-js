@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "dev": "tsup src/client.ts --format esm --dts --watch",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

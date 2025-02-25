@@ -15,19 +15,12 @@ A modern, lightweight HTTP client for Node.js with built-in retry capabilities, 
 - 💪 Full TypeScript support
 - 🪶 Lightweight with minimal dependencies
 
-## Installation
-```bash
-npm install retrieve
-```
-
 ## Quick Start
 ```typescript
 import { createHttpClient } from 'accio-js';
 
-// Create a client with default configuration
 const client = createHttpClient();
 
-// Make a request
 try {
   const response = await client.get('https://api.example.com/data');
   const data = await response.json();
