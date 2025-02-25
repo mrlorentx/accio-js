@@ -107,7 +107,7 @@ describe("HttpClient", () => {
 
   it("should handle request timeout", async () => {
     const client = createHttpClient({
-      timeout: 50, // Very short timeout
+      timeout: 50,
     });
 
     // Mock a delayed response that takes longer than the timeout
@@ -165,5 +165,104 @@ describe("HttpClient", () => {
 
     const deleteResponse = await client.delete("http://api.example.com/test/1");
     assert.equal(deleteResponse.status, 204, "DELETE should return 204");
+  });
+  it("should emit all events for request lifecycle", async () => {
+    const client = createHttpClient({
+      retry: {
+        maxRetries: 2,
+        initialDelay: 10,
+        maxDelay: 100,
+      },
+    });
+
+    const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+    client.on("request:start", (url) => {
+      events.push({ event: "start", data: { url } });
+    });
+
+    client.on("request:end", (url, response, duration) => {
+      events.push({
+        event: "end",
+        data: { url, status: response.status, duration },
+      });
+    });
+
+    client.on("request:error", (url, error) => {
+      events.push({ event: "error", data: { url, error: error.message } });
+    });
+
+    client.on("request:retry", (url, _, attempt) => {
+      events.push({ event: "retry", data: { url, attempt } });
+    });
+
+    mockPool.removeAllListeners();
+
+    // Success case - simple 200 response
+    mockPool
+      .intercept({ path: "/success", method: "GET" })
+      .reply(200, { data: "test" });
+
+    // Error case - 500 response that will trigger retries
+    mockPool
+      .intercept({ path: "/error", method: "GET" })
+      .reply(500, { error: "server error" })
+      .persist();
+
+    // Retry case - first 503, then 200
+    mockPool
+      .intercept({ path: "/retry", method: "GET" })
+      .reply(503, { error: "service unavailable" })
+      .times(1);
+
+    mockPool
+      .intercept({ path: "/retry", method: "GET" })
+      .reply(200, { data: "success after retry" })
+      .times(1);
+
+    // Test successful request
+    await client.get("http://api.example.com/success");
+
+    // Test retry request that succeeds on second attempt
+    await client.get("http://api.example.com/retry");
+
+    // Verify events for retry scenario
+    assert.equal(
+      events.length,
+      8,
+      "Should have emitted 8 events for full success+retry scenario",
+    );
+
+    // Check event types and order for retry scenario
+    assert.equal(events[0].event, "start", "First event should be start");
+    assert.equal(events[1].event, "end", "Second event should be end (200)");
+    assert.equal(events[2].event, "start", "Third event should be start");
+    assert.equal(events[3].event, "end", "Fourth event should be end (503)");
+    assert.equal(events[4].event, "error", "Fifth event should be error");
+    assert.equal(events[5].event, "retry", "Sixth event should be retry");
+    assert.equal(events[6].event, "start", "Seventh event should be start");
+    assert.equal(events[7].event, "end", "Eight event should be end (200)");
+    assert.equal(
+      events[6].event,
+      "start",
+      "Seventh event should be start (retry)",
+    );
+    assert.equal(events[7].event, "end", "Eight event should be end (200)");
+
+    assert.ok(
+      (events[1].data.duration as number) >= 0,
+      "Duration should be a number",
+    );
+    assert.equal(
+      events[3].data.status,
+      503,
+      "Fourth response status should be 503",
+    );
+    assert.equal(events[5].data.attempt, 1, "Retry attempt should be 1");
+    assert.equal(
+      events[7].data.status,
+      200,
+      "Final response status should be 200",
+    );
   });
 });

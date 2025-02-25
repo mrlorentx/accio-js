@@ -1,8 +1,8 @@
-# Retrieve
+# Accio-JS
 
 A modern, lightweight HTTP client for Node.js with built-in retry capabilities, timeout handling, and event monitoring. Built on top of Node's native fetch (via undici).
 
-[![Node.js Version](https://img.shields.io/node/v/retrieve)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/node/v/accio-js)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
 
 ## Features
@@ -21,9 +21,8 @@ npm install retrieve
 ```
 
 ## Quick Start
-
 ```typescript
-import { createHttpClient } from 'retrieve';
+import { createHttpClient } from 'accio-js';
 
 // Create a client with default configuration
 const client = createHttpClient();
