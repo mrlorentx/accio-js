@@ -1,7 +1,7 @@
 {
   "name": "accio-js",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A modern, lightweight HTTP client for Node.js with built-in retry capabilities, timeout handling, and event monitoring.",
   "main": "./dist/index.js",
   "exports": {
