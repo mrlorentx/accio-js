@@ -114,39 +114,45 @@ All methods return a `Promise<Response>` compatible with the Fetch API.
 ### Using with Hono
 
 ```typescript
-import { Hono } from 'hono';
-import { createHttpClient } from 'accio-js';
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { createHttpClient } from "accio-js";
 
-// Create a shared HTTP client
-const httpClient = createHttpClient({
-  headers: {
-    'User-Agent': 'MyApp/1.0',
+type Variables = {
+  httpClient: ReturnType<typeof createHttpClient>;
+};
+const app = new Hono<{ Variables: Variables }>();
+
+const client = createHttpClient({
+  retry: {
+    maxRetries: 3,
+    retryableStatuses: [429, 503, 504],
   },
-  timeout: 5000,
 });
 
-const app = new Hono();
+client.on("request:start", () => {
+  console.log("Request started");
+});
 
-// Add client to Hono context
-app.use('*', async (c, next) => {
-  c.set('httpClient', httpClient);
+app.use("*", async (c, next) => {
+  c.set("httpClient", client);
   await next();
 });
 
-app.get('/proxy-api', async (c) => {
-  const client = c.get('httpClient');
-  
-  try {
-    const response = await client.get('https://api.example.com/data');
-    const data = await response.json();
-    return c.json(data);
-  } catch (error) {
-    c.status(500);
-    return c.json({ error: 'Failed to fetch data' });
-  }
+app.get("/", (c) => {
+  c.get("httpClient").get("https://jsonplaceholder.typicode.com/todos/1");
+  return c.text("Hello Hono!");
 });
 
-export default app;
+serve(
+  {
+    fetch: app.fetch,
+    port: 3000,
+  },
+  (info) => {
+    console.log(`Server is running on http://localhost:${info.port}`);
+  },
+);
 ```
 ### Using with Express
 
