@@ -1,5 +1,5 @@
 {
-  "name": "retrieve",
+  "name": "accio-js",
   "type": "module",
   "version": "1.0.0",
   "description": "A modern, lightweight HTTP client for Node.js with built-in retry capabilities, timeout handling, and event monitoring.",
@@ -41,24 +41,23 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrlorentx/retrieve.git"
+    "url": "git+https://github.com/mrlorentx/accio-js.git"
   },
   "bugs": {
-    "url": "https://github.com/mrlorentx/retrieve/issues"
+    "url": "https://github.com/mrlorentx/accio-js/issues"
   },
-  "homepage": "https://github.com/mrlorentx/retrieve#readme",
+  "homepage": "https://github.com/mrlorentx/accio-js#readme",
+  "dependencies": {
+    "undici": "^7.3.0"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.21.0",
-    "@tsconfig/node-lts": "^22.0.1",
-    "@types/node": "^22.13.5",
+    "@types/node": "^17.0.13",
+    "@types/undici": "^7.0.0",
     "eslint": "^9.21.0",
     "globals": "^16.0.0",
     "tsup": "^8.3.6",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.1"
-  },
-  "dependencies": {
-    "undici": "^7.3.0"
   },
   "engines": {
     "node": ">=23.0.0"
