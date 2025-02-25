@@ -107,7 +107,7 @@ describe("HttpClient", () => {
 
   it("should handle request timeout", async () => {
     const client = createHttpClient({
-      timeout: 50, // Very short timeout
+      timeout: 50,
     });
 
     // Mock a delayed response that takes longer than the timeout
@@ -167,7 +167,6 @@ describe("HttpClient", () => {
     assert.equal(deleteResponse.status, 204, "DELETE should return 204");
   });
   it("should emit all events for request lifecycle", async () => {
-    // Create client with retry configuration
     const client = createHttpClient({
       retry: {
         maxRetries: 2,
@@ -197,7 +196,6 @@ describe("HttpClient", () => {
       events.push({ event: "retry", data: { url, attempt } });
     });
 
-    // Clear previous mocks and set up new ones
     mockPool.removeAllListeners();
 
     // Success case - simple 200 response
@@ -222,14 +220,8 @@ describe("HttpClient", () => {
       .reply(200, { data: "success after retry" })
       .times(1);
 
-    // Clear events array
-    events.length = 0;
-
     // Test successful request
     await client.get("http://api.example.com/success");
-
-    // Clear events array to isolate just the retry test
-    events.length = 0;
 
     // Test retry request that succeeds on second attempt
     await client.get("http://api.example.com/retry");
@@ -237,35 +229,38 @@ describe("HttpClient", () => {
     // Verify events for retry scenario
     assert.equal(
       events.length,
-      6,
-      "Should have emitted 6 events for retry scenario",
+      8,
+      "Should have emitted 8 events for full success+retry scenario",
     );
 
     // Check event types and order for retry scenario
     assert.equal(events[0].event, "start", "First event should be start");
-    assert.equal(events[1].event, "end", "Second event should be end (503)");
-    assert.equal(events[2].event, "error", "Third event should be error");
-    assert.equal(events[3].event, "retry", "Fourth event should be retry");
+    assert.equal(events[1].event, "end", "Second event should be end (200)");
+    assert.equal(events[2].event, "start", "Third event should be start");
+    assert.equal(events[3].event, "end", "Fourth event should be end (503)");
+    assert.equal(events[4].event, "error", "Fifth event should be error");
+    assert.equal(events[5].event, "retry", "Sixth event should be retry");
+    assert.equal(events[6].event, "start", "Seventh event should be start");
+    assert.equal(events[7].event, "end", "Eight event should be end (200)");
     assert.equal(
-      events[4].event,
+      events[6].event,
       "start",
-      "Fifth event should be start (retry)",
+      "Seventh event should be start (retry)",
     );
-    assert.equal(events[5].event, "end", "Sixth event should be end (200)");
+    assert.equal(events[7].event, "end", "Eight event should be end (200)");
 
-    // Check specific event data
     assert.ok(
       (events[1].data.duration as number) >= 0,
       "Duration should be a number",
     );
     assert.equal(
-      events[1].data.status,
+      events[3].data.status,
       503,
-      "First response status should be 503",
+      "Fourth response status should be 503",
     );
-    assert.equal(events[3].data.attempt, 1, "Retry attempt should be 1");
+    assert.equal(events[5].data.attempt, 1, "Retry attempt should be 1");
     assert.equal(
-      events[5].data.status,
+      events[7].data.status,
       200,
       "Final response status should be 200",
     );
