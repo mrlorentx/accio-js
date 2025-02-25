@@ -65,7 +65,7 @@ const client = createHttpClient({
 | `retry.maxDelay` | `number` | `1000` | Maximum delay between retries (ms) |
 | `retry.jitter` | `number` | `0.1` | Random delay factor (0-1) |
 | `retry.retryableStatuses` | `number[]` | `[408, 429, 500, 502, 503, 504]` | HTTP status codes that trigger retries |
-| `retry.shouldRetry`| `(error, attempt) => boolean`| `() => false` | Custom retry function for advanced retry logic. Return true to retry regardless of status code |
+| `retry.shouldRetry`| `(error, attempt) => boolean`| `() => true` | Custom retry function. Return `true` to retry for `retryableStatuses` using your own logic |
 
 ## Event Monitoring
 
