@@ -112,42 +112,8 @@ All methods return a `Promise<Response>` compatible with the Fetch API.
 ## Cookbook & Examples
 
 ### Using with Hono
+See [Hono example README](examples/hono/README.md)
 
-```typescript
-import { Hono } from 'hono';
-import { createHttpClient } from 'accio-js';
-
-// Create a shared HTTP client
-const httpClient = createHttpClient({
-  headers: {
-    'User-Agent': 'MyApp/1.0',
-  },
-  timeout: 5000,
-});
-
-const app = new Hono();
-
-// Add client to Hono context
-app.use('*', async (c, next) => {
-  c.set('httpClient', httpClient);
-  await next();
-});
-
-app.get('/proxy-api', async (c) => {
-  const client = c.get('httpClient');
-  
-  try {
-    const response = await client.get('https://api.example.com/data');
-    const data = await response.json();
-    return c.json(data);
-  } catch (error) {
-    c.status(500);
-    return c.json({ error: 'Failed to fetch data' });
-  }
-});
-
-export default app;
-```
 ### Using with Express
 
 ```typescript
