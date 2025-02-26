@@ -112,48 +112,8 @@ All methods return a `Promise<Response>` compatible with the Fetch API.
 ## Cookbook & Examples
 
 ### Using with Hono
+See [Hono example README](examples/hono/README.md)
 
-```typescript
-import { serve } from "@hono/node-server";
-import { Hono } from "hono";
-import { createHttpClient } from "accio-js";
-
-type Variables = {
-  httpClient: ReturnType<typeof createHttpClient>;
-};
-const app = new Hono<{ Variables: Variables }>();
-
-const client = createHttpClient({
-  retry: {
-    maxRetries: 3,
-    retryableStatuses: [429, 503, 504],
-  },
-});
-
-client.on("request:start", () => {
-  console.log("Request started");
-});
-
-app.use("*", async (c, next) => {
-  c.set("httpClient", client);
-  await next();
-});
-
-app.get("/", (c) => {
-  c.get("httpClient").get("https://jsonplaceholder.typicode.com/todos/1");
-  return c.text("Hello Hono!");
-});
-
-serve(
-  {
-    fetch: app.fetch,
-    port: 3000,
-  },
-  (info) => {
-    console.log(`Server is running on http://localhost:${info.port}`);
-  },
-);
-```
 ### Using with Express
 
 ```typescript
