@@ -115,40 +115,8 @@ All methods return a `Promise<Response>` compatible with the Fetch API.
 See [Hono example README](examples/hono/README.md)
 
 ### Using with Express
+See [Express example README](examples/express/README.md)
 
-```typescript
-import express from 'express';
-import { createHttpClient } from 'accio-js';
-
-const app = express();
-
-// Create a shared HTTP client
-const httpClient = createHttpClient({
-  timeout: 3000,
-  retry: {
-    maxRetries: 2,
-  },
-});
-
-// Add client to Express request object
-app.use((req, res, next) => {
-  req.httpClient = httpClient;
-  next();
-});
-
-// Use in route handlers
-app.get('/api/users', async (req, res) => {
-  try {
-    const response = await req.httpClient.get('https://api.example.com/users');
-    const users = await response.json();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-app.listen(3000);
-```
 ### Pushing metrics on events
 
 ```typescript
