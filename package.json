@@ -17,6 +17,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "examples:express": "tsx --watch examples/express/src/index.ts",
     "examples:hono": "tsx --watch examples/hono/src/index.ts",
     "build": "tsup",
     "dev": "tsup src/client.ts --format esm --dts --watch",
@@ -53,8 +54,10 @@
   },
   "devDependencies": {
     "@hono/node-server": "^1.13.8",
+    "@types/express": "^5.0.0",
     "@types/node": "^17.0.13",
     "eslint": "^9.21.0",
+    "express": "^4.21.2",
     "globals": "^16.0.0",
     "hono": "^4.7.2",
     "tsup": "^8.3.6",
